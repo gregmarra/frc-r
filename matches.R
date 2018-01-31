@@ -306,7 +306,7 @@ matches %>%
   count() %>%
   ggplot(aes(score, n)) +
   geom_point() +
-  geom_smooth()
+  geom_smooth() +
   labs(
     title = "Score distribution across matches",
     subtitle = "Scores are spiky due to 2017 scoring thresholds",
