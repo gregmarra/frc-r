@@ -7,3 +7,6 @@ I've been using R for Data Science to learn R, which is available online for fre
 Here's the type of stuff this makes pretty easy!
 
 ![Rookie Teams by Country](https://github.com/gregmarra/frc-r/blob/master/rookies_by_country.png "Rookie Teams by Country")
+
+![Match Score Distribution](https://github.com/gregmarra/frc-r/blob/master/2017_score_distribution.png "Match Score Distribution")
+

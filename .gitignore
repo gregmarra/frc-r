@@ -1,3 +1,6 @@
+# Data files
+/data/*.csv
+
 # History files
 .Rhistory
 .Rapp.history
@@ -34,3 +37,4 @@ vignettes/*.pdf
 
 # Thumbnails
 .DS_Store
+.Rproj.user
