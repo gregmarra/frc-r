@@ -8,14 +8,14 @@ A notebook to get FRC Match data from The Blue Alliance API.
 library(tidyverse)
 ```
 
-    ## ── Attaching packages ─────────────────────────────────────────────── tidyverse 1.2.1 ──
+    ## ── Attaching packages ──────────────────────────────────────────────────────────────────────────── tidyverse 1.2.1 ──
 
     ## ✔ ggplot2 2.2.1     ✔ purrr   0.2.4
     ## ✔ tibble  1.4.2     ✔ dplyr   0.7.4
     ## ✔ tidyr   0.8.0     ✔ stringr 1.3.0
     ## ✔ readr   1.1.1     ✔ forcats 0.3.0
 
-    ## ── Conflicts ────────────────────────────────────────────────── tidyverse_conflicts() ──
+    ## ── Conflicts ─────────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
     ## ✖ dplyr::filter() masks stats::filter()
     ## ✖ dplyr::lag()    masks stats::lag()
 
@@ -31,34 +31,15 @@ library(jsonlite)
     ##     flatten
 
 ``` r
-tba_auth_key <- fromJSON(read_file("tba_auth_key.json"))
-
-# Get Events
-url <- "https://www.thebluealliance.com/api/v3/events/2018"
-req <- httr::GET(url, httr::add_headers("X-TBA-Auth-Key" = tba_auth_key$tba_auth_key))
-json <- httr::content(req, as = "text")
-events <- fromJSON(json)
+source("get_tba_data.R")
+events <- getEvents("2018")
 
 # Get Matches
+matches <- events$event_code %>% 
+  map(~ getEventMatches(2018, .x)) %>%
+  bind_rows()
+
 comp_levels <- c("qm", "qf", "sf", "f")
-
-event_code_list <- events$event_code
-output <- vector("list", length(event_code_list))
-for (i in seq_along(event_code_list)) {
-  url <- paste(c("https://www.thebluealliance.com/api/v3/event/2018",
-                 event_code_list[[i]],
-                 "/matches"),
-               collapse = "")
-  req <- httr::GET(url, httr::add_headers("X-TBA-Auth-Key" = tba_auth_key$tba_auth_key))
-  json <- httr::content(req, as = "text")
-  these_matches <- 0
-  tryCatch(these_matches <- fromJSON(json))
-  if(length(these_matches) > 0) {
-    output[[i]] <- these_matches %>% flatten(recursive = TRUE)
-  }
-}
-
-matches_flat <- bind_rows(output)
 ```
 
 Distribution Of Match Scores
@@ -69,7 +50,7 @@ The 2018 FRC game is somewhat unique, in that there is a maximum number of owner
 Here we look at the results from 1840 matches played so far this year.
 
 ``` r
-matches_flat %>%
+matches %>%
   gather(alliances.red.score, alliances.blue.score, key = "alliance", value = "score") %>%
   filter(score >= 0) %>%
   ggplot(aes(parse_factor(comp_level, levels = comp_levels, ordered = TRUE), score)) +
@@ -85,7 +66,7 @@ matches_flat %>%
 ![](2018_matches_files/figure-markdown_github/match_score_distribution-1.png)
 
 ``` r
-matches_flat %>%
+matches %>%
   filter(alliances.red.score >= 0) %>%
   filter(alliances.blue.score >= 0) %>%
   mutate(
@@ -109,7 +90,7 @@ Ownership Deltas
 How big are the swings between ownership?
 
 ``` r
-matches_flat_ownership <- matches_flat %>%
+matches_ownership <- matches %>%
   filter(alliances.red.score >= 0) %>%
   filter(alliances.blue.score >= 0) %>%
   filter(winning_alliance != "") %>%
@@ -121,7 +102,7 @@ matches_flat_ownership <- matches_flat %>%
     switch_ownership_delta = red_switch_ownership_pts - blue_switch_ownership_pts,
     scale_ownership_delta = red_scale_ownership_pts - blue_scale_ownership_pts)
 
-matches_flat_ownership %>%
+matches_ownership %>%
   ggplot(aes(switch_ownership_delta, 
              scale_ownership_delta, 
              color = winning_alliance,
@@ -136,13 +117,13 @@ matches_flat_ownership %>%
     color = "Winner",
     shape = "Comp Level"
   ) + 
-  scale_colour_manual(values = c(red = "red", blue = "blue", NULL = "black"))
+  scale_colour_manual(values = c(red = "red", blue = "blue"))
 ```
 
 ![](2018_matches_files/figure-markdown_github/ownership_deltas-1.png)
 
 ``` r
-matches_flat_ownership %>%
+matches_ownership %>%
   gather(switch_ownership_delta, scale_ownership_delta, key = "ownership_object", value = "ownership_delta") %>%
   mutate(ownership_object = factor(ownership_object)) %>%
   mutate(ownership_object = fct_recode(ownership_object,
