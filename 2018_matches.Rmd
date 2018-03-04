@@ -9,6 +9,7 @@ A notebook to get FRC Match data from The Blue Alliance API.
 ```{r setup_and_get_data}
 library(tidyverse)
 library(jsonlite)
+library(skimr)
 
 source("get_tba_data.R")
 events <- getEvents("2018")
@@ -73,7 +74,12 @@ matches_ownership <- matches %>%
     red_scale_ownership_pts = score_breakdown.red.autoScaleOwnershipSec * 2 + score_breakdown.red.teleopScaleOwnershipSec,
     blue_scale_ownership_pts = score_breakdown.blue.autoScaleOwnershipSec * 2 + score_breakdown.blue.teleopScaleOwnershipSec,
     switch_ownership_delta = red_switch_ownership_pts - blue_switch_ownership_pts,
-    scale_ownership_delta = red_scale_ownership_pts - blue_scale_ownership_pts)
+    scale_ownership_delta = red_scale_ownership_pts - blue_scale_ownership_pts,
+    endgame_delta = score_breakdown.red.endgamePoints - score_breakdown.blue.endgamePoints,
+    vault_delta = score_breakdown.red.vaultPoints - score_breakdown.blue.vaultPoints,
+    foul_delta = score_breakdown.red.foulPoints - score_breakdown.blue.foulPoints,
+    auto_delta = score_breakdown.red.autoPoints - score_breakdown.blue.autoPoints,
+    score_delta = alliances.red.score - alliances.blue.score)
 
 matches_ownership %>%
   ggplot(aes(switch_ownership_delta, 
@@ -109,4 +115,38 @@ matches_ownership %>%
   )
 ```
 
+## Lose the Scale Win the Match
+
+What explains matches where the team loses the Scale but still wins the Match?
+
+We can look at the "scale deficit" a team had to overcome, and see what percentage of the scale deficit was overcome by deltas in other scoring objectives. We can normalize these deltas by the size of the Scale deficit that had to be overcome vs how large these deltas were. For example, if the Red Alliance Endgame scored more 60 points, and the Scale deficit they had to overcome was 45 points, their Endgame overcame 133% of the deficit.
+
+Looking at the summary statistics for matches where Red lost the Scale but won the match, we can see that the median of the percent of the deficit overcome for the Endgame is about 67%, and the median for Switch ownership is about 122%, while the vault points are only 25%. It's hard to perfectly evaluate the vault points, because they also contribute to the powerups. I haven't totally vetted that I'm looking at the score breakdowns correctly here, so I'm not sure if this is all fully capturing everything. However, this suggests that if you're going to lose the Scale, you better win the Switch and nail your Endgame!
+
+```{r lose_the_scale_win_the_match}
+## Thought to explore here:
+## In matches where the alliance loses the scale but manages to win, what fraction of the score_delta is explained by climb_delta, vault_delta, etc? What mechanic are teams using to lose the scale but win the match?
+
+matches_ownership %>%
+  filter(((scale_ownership_delta < 0) & (winning_alliance == "red")) |
+        ((scale_ownership_delta > 0) & (winning_alliance == "blue"))) %>%
+  ggplot(aes(scale_ownership_delta, score_delta, color = winning_alliance)) +
+  geom_point() +
+  scale_colour_manual(values = c(red = "red", blue = "blue"))
+
+matches_ownership %>%
+  filter(((scale_ownership_delta < 0) & (winning_alliance == "red")) |
+         ((scale_ownership_delta > 0) & (winning_alliance == "blue"))) %>%
+  filter(winning_alliance == "red") %>%
+  filter(foul_delta < score_delta) %>% # remove matches won on fouls
+  mutate(
+    switch_ownership_delta_pct_margin = switch_ownership_delta / -scale_ownership_delta,
+    endgame_delta_pct_margin = endgame_delta / -scale_ownership_delta,
+    vault_delta_pct_margin = vault_delta / -scale_ownership_delta,
+    foul_delta_pct_margin = foul_delta / -scale_ownership_delta,
+    auto_delta_pct_margin = auto_delta / -scale_ownership_delta
+  ) %>%
+  select(contains("delta")) %>%
+  skim()
+```
 
