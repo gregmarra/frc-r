@@ -72,14 +72,13 @@ Here we look at the results from 1840 matches played so far this year.
 matches_flat %>%
   gather(alliances.red.score, alliances.blue.score, key = "alliance", value = "score") %>%
   filter(score >= 0) %>%
-  ggplot(aes(score, ..density.., color = parse_factor(comp_level, levels = comp_levels, ordered = TRUE))) +
-  geom_density() +
+  ggplot(aes(parse_factor(comp_level, levels = comp_levels, ordered = TRUE), score)) +
+  geom_boxplot() +
   labs(
     title = "Score distribution across 2018 FRC matches",
-    subtitle = "Scores are higher in elims, and closely matched in finals",
-    x = "Score",
-    y = "Density",
-    color = "Comp Level"
+    subtitle = "Scores are higher in elims, andwith a smaller range in finals",
+    x = "Competition Level",
+    y = "Score"
   )
 ```
 
@@ -88,18 +87,17 @@ matches_flat %>%
 ``` r
 matches_flat %>%
   filter(alliances.red.score >= 0) %>%
-  filter(alliances.blue.score >= 0)%>%
+  filter(alliances.blue.score >= 0) %>%
   mutate(
     win_margin = abs(alliances.red.score - alliances.blue.score)
   ) %>%
-  ggplot(aes(win_margin, ..density.., color = parse_factor(comp_level, levels = comp_levels, ordered = TRUE))) +
-  geom_density() +
+  ggplot(aes(parse_factor(comp_level, levels = comp_levels, ordered = TRUE), win_margin)) +
+  geom_boxplot() +
   labs(
     title = "Win margins across 2018 FRC matches",
     subtitle = "Matches are closer in finals, as expected",
-    x = "Win Margin",
-    y = "Density",
-    color = "Comp Level"
+    x = "Competition Level",
+    y = "Win Margin"
   )
 ```
 
