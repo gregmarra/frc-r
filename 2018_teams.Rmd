@@ -1,0 +1,40 @@
+---
+title: "2018 Teams"
+author: "Greg Marra"
+output: github_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+
+source("get_tba_data.R")
+
+teams <- getTeams()
+```
+
+```{r team_growth}
+teams %>%
+  filter(!is.na(rookie_year)) %>%
+  ggplot(aes(rookie_year, team_number)) +
+  geom_point()
+
+teams %>%
+  filter(!is.na(rookie_year)) %>%
+  mutate(country = fct_lump(country, 7)) %>%
+  mutate(country = country %>% fct_infreq()) %>%
+  ggplot(aes(rookie_year, color = country)) +
+  geom_freqpoly(binwidth = 1) +
+  xlim(1990, 2018) +
+  labs(
+    title = "FRC Growth Outside USA",
+    subtitle = "Growth from 400 rookies/y to 500+ driven by Canada, China, Turkey, and others",
+    x = "Year",
+    y = "Rookie Teams",
+    color = "Country"
+  )
+```
+  
+  

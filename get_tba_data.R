@@ -1,3 +1,5 @@
+library(jsonlite)
+
 tba_auth_key <- fromJSON(read_file("tba_auth_key.json"))
 
 getTBAData <- function(url) {
@@ -24,4 +26,25 @@ getEventMatches <- function(year, event_code) {
                  "/matches"),
                collapse = "")
   return(getTBAData(url))
+}
+
+getTeamsPage <- function(page) {
+  url <- paste(c("https://www.thebluealliance.com/api/v3/teams/",
+                 page),
+               collapse = "")
+  return(getTBAData(url))
+}
+
+getTeams <- function() {
+  page = 0
+  teams = tibble()
+  while(TRUE) {
+    new_teams <- getTeamsPage(page)
+    if(length(new_teams) == 0) {
+      break
+    }
+    teams <- bind_rows(teams, new_teams)
+    page <- page + 1
+  }
+  return(teams)
 }

@@ -1,14 +1,15 @@
 ---
 title: "2018 FRC Match Analysis"
-author: Greg Marra
+author: "Greg Marra"
 output: github_document
 ---
 
 A notebook to get FRC Match data from The Blue Alliance API. 
 
-```{r setup_and_get_data}
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
 library(tidyverse)
-library(jsonlite)
 library(skimr)
 
 source("get_tba_data.R")
