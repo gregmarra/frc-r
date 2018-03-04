@@ -8,14 +8,14 @@ A notebook to get FRC Match data from The Blue Alliance API.
 library(tidyverse)
 ```
 
-    ## ── Attaching packages ──────────────────────────────────────────── tidyverse 1.2.1 ──
+    ## ── Attaching packages ─────────────────────────────────────────────── tidyverse 1.2.1 ──
 
     ## ✔ ggplot2 2.2.1     ✔ purrr   0.2.4
     ## ✔ tibble  1.4.2     ✔ dplyr   0.7.4
     ## ✔ tidyr   0.8.0     ✔ stringr 1.3.0
     ## ✔ readr   1.1.1     ✔ forcats 0.3.0
 
-    ## ── Conflicts ─────────────────────────────────────────────── tidyverse_conflicts() ──
+    ## ── Conflicts ────────────────────────────────────────────────── tidyverse_conflicts() ──
     ## ✖ dplyr::filter() masks stats::filter()
     ## ✖ dplyr::lag()    masks stats::lag()
 
@@ -82,7 +82,7 @@ matches_flat %>%
   )
 ```
 
-![](2018_matches_files/figure-markdown_github/unnamed-chunk-2-1.png)
+![](2018_matches_files/figure-markdown_github/match_score_distribution-1.png)
 
 ``` r
 matches_flat %>%
@@ -101,4 +101,62 @@ matches_flat %>%
   )
 ```
 
-![](2018_matches_files/figure-markdown_github/unnamed-chunk-3-1.png)
+![](2018_matches_files/figure-markdown_github/unnamed-chunk-1-1.png)
+
+Ownership Deltas
+----------------
+
+How big are the swings between ownership?
+
+``` r
+matches_flat_ownership <- matches_flat %>%
+  filter(alliances.red.score >= 0) %>%
+  filter(alliances.blue.score >= 0) %>%
+  filter(winning_alliance != "") %>%
+  mutate(
+    red_switch_ownership_pts = score_breakdown.red.autoSwitchOwnershipSec * 2 + score_breakdown.red.teleopSwitchOwnershipSec,
+    blue_switch_ownership_pts = score_breakdown.blue.autoSwitchOwnershipSec * 2 + score_breakdown.blue.teleopSwitchOwnershipSec,
+    red_scale_ownership_pts = score_breakdown.red.autoScaleOwnershipSec * 2 + score_breakdown.red.teleopScaleOwnershipSec,
+    blue_scale_ownership_pts = score_breakdown.blue.autoScaleOwnershipSec * 2 + score_breakdown.blue.teleopScaleOwnershipSec,
+    switch_ownership_delta = red_switch_ownership_pts - blue_switch_ownership_pts,
+    scale_ownership_delta = red_scale_ownership_pts - blue_scale_ownership_pts)
+
+matches_flat_ownership %>%
+  ggplot(aes(switch_ownership_delta, 
+             scale_ownership_delta, 
+             color = winning_alliance,
+             shape = parse_factor(comp_level, levels = comp_levels, ordered = TRUE)),
+         alpha = 0.8) +
+  geom_point() + 
+  geom_abline(slope = -1) +
+  labs(
+    title = "Ownership Points",
+    x = "Switch Ownership Delta (Red - Blue)",
+    y = "Scale Ownership Detla (Red - Blue)",
+    color = "Winner",
+    shape = "Comp Level"
+  ) + 
+  scale_colour_manual(values = c(red = "red", blue = "blue", NULL = "black"))
+```
+
+![](2018_matches_files/figure-markdown_github/ownership_deltas-1.png)
+
+``` r
+matches_flat_ownership %>%
+  gather(switch_ownership_delta, scale_ownership_delta, key = "ownership_object", value = "ownership_delta") %>%
+  mutate(ownership_object = factor(ownership_object)) %>%
+  mutate(ownership_object = fct_recode(ownership_object,
+    "Switch" = "switch_ownership_delta",
+    "Scale"  = "scale_ownership_delta"
+  )) %>%
+  ggplot(aes(abs(ownership_delta), color = ownership_object)) +
+  geom_freqpoly(binwidth = 6) +
+  labs(
+    title = "Ownership Points",
+    x = "Ownership Delta",
+    y = "Match Count",
+    color = "Scoring Object"
+  )
+```
+
+![](2018_matches_files/figure-markdown_github/ownership_deltas-2.png)

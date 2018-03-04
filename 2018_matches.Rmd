@@ -6,7 +6,7 @@ output: github_document
 
 A notebook to get FRC Match data from The Blue Alliance API. 
 
-```{r}
+```{r setup_and_get_data}
 library(tidyverse)
 library(jsonlite)
 
@@ -46,7 +46,7 @@ The 2018 FRC game is somewhat unique, in that there is a maximum number of owner
 
 Here we look at the results from `r nrow(matches_flat)` matches played so far this year.
 
-```{r}
+```{r match_score_distribution}
 matches_flat %>%
   gather(alliances.red.score, alliances.blue.score, key = "alliance", value = "score") %>%
   filter(score >= 0) %>%
@@ -76,4 +76,56 @@ matches_flat %>%
     y = "Win Margin"
   )
 ```
+
+## Ownership Deltas
+
+How big are the swings between ownership?
+
+```{r ownership_deltas}
+matches_flat_ownership <- matches_flat %>%
+  filter(alliances.red.score >= 0) %>%
+  filter(alliances.blue.score >= 0) %>%
+  filter(winning_alliance != "") %>%
+  mutate(
+    red_switch_ownership_pts = score_breakdown.red.autoSwitchOwnershipSec * 2 + score_breakdown.red.teleopSwitchOwnershipSec,
+    blue_switch_ownership_pts = score_breakdown.blue.autoSwitchOwnershipSec * 2 + score_breakdown.blue.teleopSwitchOwnershipSec,
+    red_scale_ownership_pts = score_breakdown.red.autoScaleOwnershipSec * 2 + score_breakdown.red.teleopScaleOwnershipSec,
+    blue_scale_ownership_pts = score_breakdown.blue.autoScaleOwnershipSec * 2 + score_breakdown.blue.teleopScaleOwnershipSec,
+    switch_ownership_delta = red_switch_ownership_pts - blue_switch_ownership_pts,
+    scale_ownership_delta = red_scale_ownership_pts - blue_scale_ownership_pts)
+
+matches_flat_ownership %>%
+  ggplot(aes(switch_ownership_delta, 
+             scale_ownership_delta, 
+             color = winning_alliance,
+             shape = parse_factor(comp_level, levels = comp_levels, ordered = TRUE)),
+         alpha = 0.8) +
+  geom_point() + 
+  geom_abline(slope = -1) +
+  labs(
+    title = "Ownership Points",
+    x = "Switch Ownership Delta (Red - Blue)",
+    y = "Scale Ownership Detla (Red - Blue)",
+    color = "Winner",
+    shape = "Comp Level"
+  ) + 
+  scale_colour_manual(values = c(red = "red", blue = "blue", NULL = "black"))
+
+matches_flat_ownership %>%
+  gather(switch_ownership_delta, scale_ownership_delta, key = "ownership_object", value = "ownership_delta") %>%
+  mutate(ownership_object = factor(ownership_object)) %>%
+  mutate(ownership_object = fct_recode(ownership_object,
+    "Switch" = "switch_ownership_delta",
+    "Scale"  = "scale_ownership_delta"
+  )) %>%
+  ggplot(aes(abs(ownership_delta), color = ownership_object)) +
+  geom_freqpoly(binwidth = 6) +
+  labs(
+    title = "Ownership Points",
+    x = "Ownership Delta",
+    y = "Match Count",
+    color = "Scoring Object"
+  )
+```
+
 
