@@ -72,13 +72,14 @@ Here we look at the results from 1840 matches played so far this year.
 matches_flat %>%
   gather(alliances.red.score, alliances.blue.score, key = "alliance", value = "score") %>%
   filter(score >= 0) %>%
-  ggplot(aes(parse_factor(comp_level, levels = comp_levels, ordered = TRUE), score)) +
-  geom_violin() +
+  ggplot(aes(score, ..density.., color = parse_factor(comp_level, levels = comp_levels, ordered = TRUE))) +
+  geom_density() +
   labs(
     title = "Score distribution across 2018 FRC matches",
     subtitle = "Scores are higher in elims, and closely matched in finals",
-    x = "Competition Level",
-    y = "Score"
+    x = "Score",
+    y = "Density",
+    color = "Comp Level"
   )
 ```
 
@@ -91,17 +92,18 @@ matches_flat %>%
   mutate(
     win_margin = abs(alliances.red.score - alliances.blue.score)
   ) %>%
-  ggplot(aes(parse_factor(comp_level, levels = comp_levels, ordered = TRUE), win_margin)) +
-  geom_violin() +
+  ggplot(aes(win_margin, ..density.., color = parse_factor(comp_level, levels = comp_levels, ordered = TRUE))) +
+  geom_density() +
   labs(
     title = "Win margins across 2018 FRC matches",
     subtitle = "Matches are closer in finals, as expected",
-    x = "Competition Level",
-    y = "Win Margin"
+    x = "Win Margin",
+    y = "Density",
+    color = "Comp Level"
   )
 ```
 
-![](2018_matches_files/figure-markdown_github/unnamed-chunk-1-1.png)
+![](2018_matches_files/figure-markdown_github/win_margins-1.png)
 
 Ownership Deltas
 ----------------
