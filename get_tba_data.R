@@ -1,21 +1,3 @@
-
-
-tryDownloadEvent <- function(event) {
-  tryCatch(
-    download.file(
-      paste(c("https://raw.githubusercontent.com/the-blue-alliance/the-blue-alliance-data/master/events/2017/",
-              event,
-              "/",
-              event,
-              "_matches.csv"),
-            collapse = ""),
-      paste(c("data/",
-              event,
-              "_matches.csv"),
-            collapse = ""),
-      "curl"))
-}
-
 tba_auth_key <- fromJSON(read_file("tba_auth_key.json"))
 
 getTBAData <- function(url) {
