@@ -4,62 +4,12 @@ Greg Marra
 
 A notebook to get FRC Match data from The Blue Alliance API.
 
-``` r
-library(tidyverse)
-```
-
-    ## ── Attaching packages ───────────────────────────────────────────────────────────────────────────────────────────────────────────────── tidyverse 1.2.1 ──
-
-    ## ✔ ggplot2 2.2.1     ✔ purrr   0.2.4
-    ## ✔ tibble  1.4.2     ✔ dplyr   0.7.4
-    ## ✔ tidyr   0.8.0     ✔ stringr 1.3.0
-    ## ✔ readr   1.1.1     ✔ forcats 0.3.0
-
-    ## ── Conflicts ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
-    ## ✖ dplyr::filter() masks stats::filter()
-    ## ✖ dplyr::lag()    masks stats::lag()
-
-``` r
-library(jsonlite)
-```
-
-    ## 
-    ## Attaching package: 'jsonlite'
-
-    ## The following object is masked from 'package:purrr':
-    ## 
-    ##     flatten
-
-``` r
-library(skimr)
-```
-
-    ## 
-    ## Attaching package: 'skimr'
-
-    ## The following objects are masked from 'package:dplyr':
-    ## 
-    ##     contains, ends_with, everything, matches, num_range, one_of,
-    ##     starts_with
-
-``` r
-source("get_tba_data.R")
-events <- getEvents("2018")
-
-# Get Matches
-matches <- events$event_code %>% 
-  map(~ getEventMatches(2018, .x)) %>%
-  bind_rows()
-
-comp_levels <- c("qm", "qf", "sf", "f")
-```
-
 Distribution Of Match Scores
 ============================
 
 The 2018 FRC game is somewhat unique, in that there is a maximum number of ownership points that can exist in a match, and teams need to tip the accumulation of those points towards their alliance. Early scoring is worth much more in that it can accumulate longer, while a box scored in a Switch or Scale during the last second of the match can only be worth a single point.
 
-Here we look at the results from 1840 matches played so far this year.
+Here we look at the results from 2074 matches played so far this year.
 
 ``` r
 matches %>%
@@ -162,7 +112,13 @@ matches_ownership %>%
 Lose the Scale Win the Match
 ----------------------------
 
-What explains matches where the team loses the Scale but still wins the Match?
+``` r
+matches_lose_scale_win_match <- matches_ownership %>%
+  filter(((scale_ownership_delta < 0) & (winning_alliance == "red")) |
+        ((scale_ownership_delta > 0) & (winning_alliance == "blue")))
+```
+
+What explains the 10.8968177% of matches where the team loses the Scale but still wins the Match (226 out of 2074 matches)?
 
 We can look at the "scale deficit" a team had to overcome, and see what percentage of the scale deficit was overcome by deltas in other scoring objectives. We can normalize these deltas by the size of the Scale deficit that had to be overcome vs how large these deltas were. For example, if the Red Alliance Endgame scored more 60 points, and the Scale deficit they had to overcome was 45 points, their Endgame overcame 133% of the deficit.
 
@@ -172,9 +128,7 @@ Looking at the summary statistics for matches where Red lost the Scale but won t
 ## Thought to explore here:
 ## In matches where the alliance loses the scale but manages to win, what fraction of the score_delta is explained by climb_delta, vault_delta, etc? What mechanic are teams using to lose the scale but win the match?
 
-matches_ownership %>%
-  filter(((scale_ownership_delta < 0) & (winning_alliance == "red")) |
-        ((scale_ownership_delta > 0) & (winning_alliance == "blue"))) %>%
+matches_lose_scale_win_match %>%
   ggplot(aes(scale_ownership_delta, score_delta, color = winning_alliance)) +
   geom_point() +
   scale_colour_manual(values = c(red = "red", blue = "blue"))
@@ -200,37 +154,37 @@ matches_ownership %>%
 ```
 
     ## Skim summary statistics
-    ##  n obs: 43 
+    ##  n obs: 85 
     ##  n variables: 12 
     ## 
     ## Variable type: integer 
-    ##       variable missing complete  n  mean    sd  p0  p25 median  p75 p100
-    ##     auto_delta       0       43 43  8.7  11.65 -20  0        7 15.5   40
-    ##  endgame_delta       0       43 43 31.05 26.18 -25 17.5     30 55     85
-    ##     foul_delta       0       43 43  1.51 28.38 -75 -7.5      0 10     80
-    ##    score_delta       0       43 43 68.16 45.59   8 26.5     61 99    174
-    ##    vault_delta       0       43 43 15.7  12.98 -10 10       15 25     45
+    ##       variable missing complete  n  mean    sd  p0 p25 median p75 p100
+    ##     auto_delta       0       85 85  7.48 10.95 -21   0      6  15   40
+    ##  endgame_delta       0       85 85 24.53 25.29 -50   5     25  35   85
+    ##     foul_delta       0       85 85  9.82 35.57 -75  -5      5  20  120
+    ##    score_delta       0       85 85 73.31 54.92   1  28     60 108  260
+    ##    vault_delta       0       85 85 15.65 13.64 -15   5     15  25   45
     ##      hist
-    ##  ▁▂▃▇▃▃▁▁
-    ##  ▂▂▂▇▂▅▅▁
-    ##  ▁▁▂▇▆▂▁▁
-    ##  ▇▃▃▂▅▁▃▁
-    ##  ▃▃▇▇▇▇▂▂
+    ##  ▁▂▆▇▅▅▁▁
+    ##  ▁▁▃▂▇▂▃▁
+    ##  ▁▁▃▇▂▁▁▁
+    ##  ▇▅▃▃▃▁▁▁
+    ##  ▁▃▂▇▃▅▁▂
     ## 
     ## Variable type: numeric 
-    ##                           variable missing complete  n   mean    sd
-    ##              auto_delta_pct_margin       0       43 43   0.15  0.97
-    ##           endgame_delta_pct_margin       0       43 43   1.18  2.56
-    ##              foul_delta_pct_margin       0       43 43   0.67  3.91
-    ##              scale_ownership_delta       0       43 43 -57.35 36.39
-    ##             switch_ownership_delta       0       43 43  71.93 48.68
-    ##  switch_ownership_delta_pct_margin       0       43 43   4.15 17.64
-    ##             vault_delta_pct_margin       0       43 43   0.49  1.75
-    ##       p0     p25 median    p75  p100     hist
-    ##    -5      0       0.16   0.29   2.5 ▁▁▁▁▁▇▁▁
-    ##    -2.5    0.23    0.67   1.25  15   ▁▇▁▁▁▁▁▁
-    ##    -1.88  -0.085   0      0.2   25   ▇▁▁▁▁▁▁▁
-    ##  -126    -86.5   -55    -26.5   -1   ▃▅▃▅▅▃▇▅
-    ##   -16     31      74    112.5  158   ▃▆▇▅▇▃▆▅
-    ##    -8      0.72    1.22   2.32 116   ▇▁▁▁▁▁▁▁
-    ##    -5      0.14    0.22   0.6   10   ▁▁▇▂▁▁▁▁
+    ##                           variable missing complete  n    mean    sd
+    ##              auto_delta_pct_margin       0       85 85   0.072  1.57
+    ##           endgame_delta_pct_margin       0       85 85   1.05   2.5 
+    ##              foul_delta_pct_margin       0       85 85   0.97   3.34
+    ##              scale_ownership_delta       0       85 85 -55.89  38.01
+    ##             switch_ownership_delta       0       85 85  74     47.65
+    ##  switch_ownership_delta_pct_margin       0       85 85   5.2   18.84
+    ##             vault_delta_pct_margin       0       85 85   0.55   1.7 
+    ##       p0     p25  median    p75 p100     hist
+    ##   -10.5    0       0.13    0.31    4 ▁▁▁▁▁▇▂▁
+    ##    -2.5    0.074   0.52    1.04   15 ▁▇▁▁▁▁▁▁
+    ##    -1.88  -0.056   0.046   0.62   25 ▇▂▁▁▁▁▁▁
+    ##  -127    -88     -50     -25      -1 ▅▃▆▆▃▅▇▇
+    ##   -16     29      79     114     158 ▃▇▇▆▇▇▇▆
+    ##    -8      0.75    1.23    2.5   125 ▇▁▁▁▁▁▁▁
+    ##    -5      0.13    0.32    0.62   10 ▁▁▇▂▁▁▁▁

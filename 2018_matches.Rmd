@@ -118,7 +118,14 @@ matches_ownership %>%
 
 ## Lose the Scale Win the Match
 
-What explains matches where the team loses the Scale but still wins the Match?
+```{r}
+matches_lose_scale_win_match <- matches_ownership %>%
+  filter(((scale_ownership_delta < 0) & (winning_alliance == "red")) |
+        ((scale_ownership_delta > 0) & (winning_alliance == "blue")))
+```
+
+
+What explains the `r nrow(matches_lose_scale_win_match) / nrow(matches) * 100`% of matches where the team loses the Scale but still wins the Match (`r nrow(matches_lose_scale_win_match)` out of `r nrow(matches)` matches)?
 
 We can look at the "scale deficit" a team had to overcome, and see what percentage of the scale deficit was overcome by deltas in other scoring objectives. We can normalize these deltas by the size of the Scale deficit that had to be overcome vs how large these deltas were. For example, if the Red Alliance Endgame scored more 60 points, and the Scale deficit they had to overcome was 45 points, their Endgame overcame 133% of the deficit.
 
@@ -128,9 +135,7 @@ Looking at the summary statistics for matches where Red lost the Scale but won t
 ## Thought to explore here:
 ## In matches where the alliance loses the scale but manages to win, what fraction of the score_delta is explained by climb_delta, vault_delta, etc? What mechanic are teams using to lose the scale but win the match?
 
-matches_ownership %>%
-  filter(((scale_ownership_delta < 0) & (winning_alliance == "red")) |
-        ((scale_ownership_delta > 0) & (winning_alliance == "blue"))) %>%
+matches_lose_scale_win_match %>%
   ggplot(aes(scale_ownership_delta, score_delta, color = winning_alliance)) +
   geom_point() +
   scale_colour_manual(values = c(red = "red", blue = "blue"))

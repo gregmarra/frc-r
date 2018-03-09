@@ -1,0 +1,150 @@
+---
+title: "Week Two Match Analysis Using the TBA API and R"
+author: "Greg Marra"
+date: "3/8/2018"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(skimr)
+
+source("get_tba_data.R")
+
+events <- getEvents("2018")
+
+# Get Matches
+matches <- events$event_code %>% 
+  map(~ getEventMatches(2018, .x)) %>%
+  bind_rows()
+
+matches <- matches %>%
+  filter(alliances.red.score >= 0) %>%
+  filter(alliances.blue.score >= 0) %>%
+  mutate(comp_level_simple = fct_collapse(comp_level,
+    Qualifications = c("qm"),
+    Playoffs = c("qf", "sf", "f")
+  )) %>%
+  mutate(comp_level_simple = fct_relevel(comp_level_simple, c("Qualifications", "Playoffs"))) %>%
+  mutate(
+    red_switch_ownership_pts = score_breakdown.red.autoSwitchOwnershipSec * 2 + score_breakdown.red.teleopSwitchOwnershipSec,
+    blue_switch_ownership_pts = score_breakdown.blue.autoSwitchOwnershipSec * 2 + score_breakdown.blue.teleopSwitchOwnershipSec,
+    red_scale_ownership_pts = score_breakdown.red.autoScaleOwnershipSec * 2 + score_breakdown.red.teleopScaleOwnershipSec,
+    blue_scale_ownership_pts = score_breakdown.blue.autoScaleOwnershipSec * 2 + score_breakdown.blue.teleopScaleOwnershipSec,
+    switch_ownership_delta = red_switch_ownership_pts - blue_switch_ownership_pts,
+    scale_ownership_delta = red_scale_ownership_pts - blue_scale_ownership_pts,
+    endgame_delta = score_breakdown.red.endgamePoints - score_breakdown.blue.endgamePoints,
+    vault_delta = score_breakdown.red.vaultPoints - score_breakdown.blue.vaultPoints,
+    foul_delta = score_breakdown.red.foulPoints - score_breakdown.blue.foulPoints,
+    auto_delta = score_breakdown.red.autoPoints - score_breakdown.blue.autoPoints,
+    score_delta = alliances.red.score - alliances.blue.score,
+    win_margin = abs(alliances.red.score - alliances.blue.score),
+    winning_alliance = ifelse(winning_alliance == "", "tie", winning_alliance)
+  )
+
+matches_alliances <- matches %>%
+  gather(alliances.red.score, alliances.blue.score, key = "alliance", value = "score")
+
+comp_levels <- c("qm", "qf", "sf", "f")
+```
+
+FIRST® POWER UPS℠ is turning out to be a very interesting game! In this blog post, we'll use (The Blue Alliance API)[https://www.thebluealliance.com/apidocs/] and the R programming language to analyze the `r nrow(matches)` matches played so far this year.
+
+*The code that generated this blog post is available on my github at <LINK>. Fork it, load it up in (RStudio)[https://www.rstudio.com/], and try it out! If you want to learn more about using R to do data science, I recommend ("R for Data Science" by Hadley Wickham and Garrett Grolemund)[http://r4ds.had.co.nz/], which is available for free online.*
+
+## Match Scores
+
+```{r match_score_distribution}
+matches_alliances %>%
+  ggplot(aes(comp_level_simple, score)) +
+  geom_boxplot() +
+  labs(
+    title = "Alliances have higher scores in playoff matches",
+    x = "Competition Level",
+    y = "Alliance Score"
+  )
+```
+
+The chart above is a boxplot, which shows the minimum, 25th percentile, median, 75th percentile, and maximum of the non-outlier values, with the outliers as dots. Unsurprisingly, scores are higher in playoff matches than in qualification matches.
+
+```{r win_margins}
+matches %>%
+  ggplot(aes(comp_level_simple, win_margin)) +
+  geom_boxplot() +
+  labs(
+    title = "Win margins are narrower in playoff matches",
+    x = "Competition Level",
+    y = "Win Margin"
+  )
+```
+
+Looking at win margins, we see that the median win margin in qualification matches is `r matches %>% filter(comp_level_simple == "Qualifications") %>% .$win_margin %>% median()` while the median win margin in playoff matches is only `r matches %>% filter(comp_level_simple == "Qualifications") %>% .$win_margin %>% median()`, `r matches %>% filter(comp_level_simple == "Qualifications") %>% .$win_margin %>% median() - matches %>% filter(comp_level_simple == "Playoffs") %>% .$win_margin %>% median()` points lower!
+
+## How to Win
+
+Are matches being decided based on the gap in Scale scoring, or in Switch scoring?
+
+```{r}
+matches %>%
+  gather(switch_ownership_delta, scale_ownership_delta, key = "ownership_object", value = "ownership_delta") %>%
+  mutate(ownership_object = fct_recode(ownership_object,
+    "Switch" = "switch_ownership_delta",
+    "Scale"  = "scale_ownership_delta"
+  )) %>%
+  mutate(ownership_object = fct_relevel(ownership_object, c("Switch", "Scale")))%>%
+  ggplot(aes(comp_level_simple, abs(ownership_delta))) +
+  geom_boxplot() +
+  facet_wrap(~ .$ownership_object) +
+  labs(
+    title = "Ownership Point Margin Between Alliances",
+    x = "",
+    y = "Point Margin",
+    fill = "Scoring Object"
+  )
+```
+
+The median Switch point margins are much smaller than the median Scale point margins, both in Qualifications and Playoffs. In the typical match, Switch scoring isn't enough to overcome Scale scoring.
+
+```{r}
+matches %>%
+  ggplot(aes(scale_ownership_delta, 
+             score_delta, 
+             color = winning_alliance,
+             shape = comp_level_simple),
+         alpha = 0.8) +
+  geom_point() + 
+  geom_abline(slope = -1) +
+  labs(
+    title = "Scale margin usually exceeds Match margin",
+    subtitle = "Diagonal line shows boundary where alliance won Scale but lost Match",
+    x = "Scale Margin (Red - Blue)",
+    y = "Match Score Margin (Red - Blue)",
+    color = "Winner",
+    shape = "Comp Level"
+  ) + 
+  scale_colour_manual(values = c(red = "red", blue = "blue", tie = "purple"))
+```
+
+```{r scale_win_ratio}
+scale_win_ratio <- matches %>%
+  mutate(scale_owner_won_match = 
+           (scale_ownership_delta > 0 & score_delta > 0) |
+           (scale_ownership_delta < 0 & score_delta < 0)
+         ) %>%
+  .$scale_owner_won_match %>%
+  mean()
+```
+
+In `r sprintf("%1.1f%%", scale_win_ratio * 100)` of matches, the alliance that wins the scale wins the match.
+
+
+```{r}
+## Filter out matches that had <10pt scale difference
+## Do the "what other scoring objective won it?" analysis
+## See if that can be a series of stacked bars of %'s
+```
+
+
+
