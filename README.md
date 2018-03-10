@@ -15,7 +15,6 @@ Here are a few of the analyses I've done with this:
 
 Here are fast examples of plots this makes easy:
 
+![POWER UP Scale vs Match Margins](https://github.com/gregmarra/frc-r/blob/master/2018_tba_w2_blog_post_files/figure-markdown_github/scale_margin_match_margin_comparison-1.png "POWER UP Scale vs Match Margins")
+
 ![Rookie Teams by Country](https://github.com/gregmarra/frc-r/blob/master/rookies_by_country.png "Rookie Teams by Country")
-
-![Match Score Distribution](https://github.com/gregmarra/frc-r/blob/master/2017_score_distribution.png "Match Score Distribution")
-

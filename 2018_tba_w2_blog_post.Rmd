@@ -1,7 +1,7 @@
 ---
 title: "Week Two Match Analysis Using the TBA API and R"
 author: "Greg Marra"
-date: "3/8/2018"
+date: "3/10/2018"
 output: github_document
 ---
 
@@ -151,8 +151,7 @@ The Switch point margins are much smaller than the Scale point margins, both in 
 matches %>%
   ggplot(aes(scale_ownership_delta, 
              score_delta, 
-             color = winning_alliance,
-             shape = comp_level_simple)) +
+             color = winning_alliance)) +
   geom_point(alpha = 0.3) + 
   geom_abline(slope = -1) +
   labs(
@@ -160,8 +159,7 @@ matches %>%
     subtitle = "Region between diagonal line and horizontal axis is where alliance won Scale but lost Match",
     x = "Scale Margin (Red - Blue)",
     y = "Match Score Margin (Red - Blue)",
-    color = "Winner",
-    shape = "Competition Level"
+    color = "Winner"
   ) + 
   scale_colour_manual(values = c(red = "red", blue = "blue", tie = "purple"))
 ```
@@ -180,25 +178,30 @@ playoffs_scale_win_ratio <- matches %>%
 
 In `r sprintf("%1.1f%%", quals_scale_win_ratio * 100)` of Qualification matches and `r sprintf("%1.1f%%", playoffs_scale_win_ratio * 100)` of Playoff matches, the alliance that wins the Scale wins the match. This game is truly a battle for the Scale!
 
-## Lose the Scale, Win the Match
+Below, we look at how your lead on the Scale affects the odds you'll win the match.
 
-Obviously it's good advice to try to outscore your opponent on the Scale, but if you're going to lose the Scale, how should you win the match?
-
-We can look at the matches where teams have overcome a Scale margin to win the match anyway. Below is a cumulative distribution function showing what percent of matches where a team lost the Scale but won the match a particular Scale margin or lower.
-
-```{r scale_margin_cdf}
+```{r scale_margin_win_pct}
 matches %>%
-  filter(scale_owner_won_match == FALSE) %>%
-  ggplot(aes(abs(scale_ownership_delta))) +
-  stat_ecdf() +
+  mutate(abs_scale_ownership_delta = abs(scale_ownership_delta)) %>%
+  filter(abs_scale_ownership_delta > 0) %>%
+  group_by(abs_scale_ownership_delta) %>%
+  summarize(n = n(), 
+            pct_won = mean((winning_alliance == "red" & scale_ownership_delta > 0) |
+                           (winning_alliance == "blue" & scale_ownership_delta < 0))) %>%
+  ggplot(aes(x = abs_scale_ownership_delta, y = pct_won, weight = n)) +
+  geom_smooth(method = "loess") +
   labs(
-    title = "Easier to overcome smaller Scale margins",
-    subtitle = "Matches where winning alliance had a negative Scale margin",
-    x = "Scale margin",
-    y = "Cumulative % of Matches"
+    title = "The biggest your Scale lead, the more likely you'll win the match",
+    subtitle = "Smoothed model fit to match results",
+    x = "Scale Margin",
+    y = "% Matches Won"
   ) +
   scale_y_continuous(labels = scales::percent)
 ```
+
+## Lose the Scale, Win the Match
+
+Obviously it's good advice to try to outscore your opponent on the Scale, but if you're going to lose the Scale, how should you win the match?
 
 If you're behind on the Scale, you've got to make up the points somewhere else. We can get a sense for what matters by looking at each other scoring objective's margin, and calculating it as the percent of the Scale margin the alliance had to overcome. If you lost the Scale by 50 points, but won the Switch by 25 points and won the Endgame by 30 points, we'd say the Switch made up 50% of the Scale margin, and the Endgame made up 60% of the Scale margin, so the alliance made up 110% of the Scale margin in total.
 
