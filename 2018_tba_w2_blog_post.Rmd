@@ -21,35 +21,51 @@ matches <- events$event_code %>%
   bind_rows()
 
 matches <- matches %>%
-  filter(alliances.red.score >= 0) %>%
-  filter(alliances.blue.score >= 0) %>%
+  filter(alliances.red.score >= 0 & alliances.blue.score >= 0) %>%
   mutate(comp_level_simple = fct_collapse(comp_level,
     Qualifications = c("qm"),
     Playoffs = c("qf", "sf", "f")
   )) %>%
   mutate(comp_level_simple = fct_relevel(comp_level_simple, c("Qualifications", "Playoffs"))) %>%
   mutate(
-    red_switch_ownership_pts = score_breakdown.red.autoSwitchOwnershipSec * 2 + score_breakdown.red.teleopSwitchOwnershipSec,
-    blue_switch_ownership_pts = score_breakdown.blue.autoSwitchOwnershipSec * 2 + score_breakdown.blue.teleopSwitchOwnershipSec,
-    red_scale_ownership_pts = score_breakdown.red.autoScaleOwnershipSec * 2 + score_breakdown.red.teleopScaleOwnershipSec,
-    blue_scale_ownership_pts = score_breakdown.blue.autoScaleOwnershipSec * 2 + score_breakdown.blue.teleopScaleOwnershipSec,
-    switch_ownership_delta = red_switch_ownership_pts - blue_switch_ownership_pts,
+    red_switch_ownership_pts = score_breakdown.red.autoSwitchOwnershipSec * 2 + 
+                               score_breakdown.red.teleopSwitchOwnershipSec + 
+                               -score_breakdown.red.teleopSwitchForceSec,
+    blue_switch_ownership_pts = score_breakdown.blue.autoSwitchOwnershipSec * 2 + 
+                                score_breakdown.blue.teleopSwitchOwnershipSec + 
+                                -score_breakdown.blue.teleopSwitchForceSec,
+    red_scale_ownership_pts = score_breakdown.red.autoScaleOwnershipSec * 2 + 
+                              score_breakdown.red.teleopScaleOwnershipSec +
+                              -score_breakdown.red.teleopScaleForceSec,
+    blue_scale_ownership_pts = score_breakdown.blue.autoScaleOwnershipSec * 2 + 
+                               score_breakdown.blue.teleopScaleOwnershipSec +
+                              -score_breakdown.blue.teleopScaleForceSec,
+    auto_delta = score_breakdown.red.autoRunPoints - score_breakdown.blue.autoRunPoints,
+    endgame_delta = score_breakdown.red.endgamePoints - score_breakdown.blue.endgamePoints,
+    foul_delta = score_breakdown.red.foulPoints - score_breakdown.blue.foulPoints,
     scale_ownership_delta = red_scale_ownership_pts - blue_scale_ownership_pts,
+    switch_ownership_delta = red_switch_ownership_pts - blue_switch_ownership_pts,
+    vault_delta = (score_breakdown.red.vaultPoints + 
+                   score_breakdown.red.teleopScaleBoostSec + 
+                   score_breakdown.red.teleopSwitchBoostSec + 
+                   score_breakdown.red.teleopScaleForceSec + 
+                   score_breakdown.red.teleopSwitchForceSec) - 
+                  (score_breakdown.blue.vaultPoints + 
+                   score_breakdown.blue.teleopScaleBoostSec + 
+                   score_breakdown.blue.teleopSwitchBoostSec + 
+                   score_breakdown.blue.teleopScaleForceSec + 
+                   score_breakdown.blue.teleopSwitchForceSec),
+    score_delta = alliances.red.score - alliances.blue.score,
     scale_owner_won_match = (scale_ownership_delta > 0 & score_delta > 0) |
                             (scale_ownership_delta < 0 & score_delta < 0),
-    endgame_delta = score_breakdown.red.endgamePoints - score_breakdown.blue.endgamePoints,
-    vault_delta = (score_breakdown.red.vaultPoints + score_breakdown.red.teleopScaleBoostSec + score_breakdown.red.teleopSwitchBoostSec) - (score_breakdown.blue.vaultPoints + score_breakdown.blue.teleopScaleBoostSec + score_breakdown.blue.teleopSwitchBoostSec),
-    foul_delta = score_breakdown.red.foulPoints - score_breakdown.blue.foulPoints,
-    auto_delta = score_breakdown.red.autoPoints - score_breakdown.blue.autoPoints,
-    score_delta = alliances.red.score - alliances.blue.score,
     win_margin = abs(alliances.red.score - alliances.blue.score),
     winning_alliance = ifelse(winning_alliance == "", "tie", winning_alliance),
     winner_auto_delta = ifelse(winning_alliance == "red", auto_delta, -auto_delta),
     winner_endgame_delta = ifelse(winning_alliance == "red", endgame_delta, -endgame_delta),
-    winner_vault_delta = ifelse(winning_alliance == "red", vault_delta, -vault_delta),
     winner_foul_delta = ifelse(winning_alliance == "red", foul_delta, -foul_delta),
+    winner_scale_ownership_delta = ifelse(winning_alliance == "red", scale_ownership_delta, -scale_ownership_delta),
     winner_switch_ownership_delta = ifelse(winning_alliance == "red", switch_ownership_delta, -switch_ownership_delta),
-    winner_scale_ownership_delta = ifelse(winning_alliance == "red", scale_ownership_delta, -scale_ownership_delta)
+    winner_vault_delta = ifelse(winning_alliance == "red", vault_delta, -vault_delta)
   )
 
 matches_alliances <- matches %>%
@@ -60,9 +76,17 @@ comp_levels <- c("qm", "qf", "sf", "f")
 
 FIRST® POWER UP℠ is playing out to be a very interesting game! In this blog post, we'll use [The Blue Alliance API](https://www.thebluealliance.com/apidocs/) and the R programming language to analyze the `r nrow(matches)` matches played so far this year.
 
-*The code for this blog post is available on my github at <LINK>. Fork it, load it up in [RStudio](https://www.rstudio.com/), and try it out! If you want to learn more about using R to do data science, I recommend ("R for Data Science" by Hadley Wickham and Garrett Grolemund)(http://r4ds.had.co.nz/), which is available for free online.*
+*The code for this blog post is available on my github at https://github.com/gregmarra/frc-r. Fork it, load it up in [RStudio](https://www.rstudio.com/), and try it out! If you want to learn more about using R to do data science, I recommend ("R for Data Science" by Hadley Wickham and Garrett Grolemund)(http://r4ds.had.co.nz/), which is available for free online.*
 
-## Match Scores
+## Box Plots
+
+In this blog post, I use box plots to visualize statistics of matches that have been played. A box plot shows the minimum, 25th percentile, median (or 50th percentile), 75th percentile, and maximum of the non-outlier values of a distribution, and shows the outliers as dots. If you aren't familiar with box plots, you can read more about them on Wikipedia: https://en.wikipedia.org/wiki/Box_plot
+
+## Match Results
+
+Particularly in a game with complex strategy like FIRST® POWER UP℠, teams have to decide on the best way to score more points than their opposing alliance. Teams need to decide how to most efficiently spend every second of the match. Is it better to try to tip the Scale right now, deactive the opponent's Switch, or focus on the Vault?
+
+One way to start to try to answer that question is to look at the score distribution among all matches, and the win margin of points between the winning alliance and the losing alliance. We can use box plots to easily visualize the results from all matches.
 
 ```{r match_score_distribution}
 matches_alliances %>%
@@ -75,14 +99,12 @@ matches_alliances %>%
   )
 ```
 
-The chart above is a boxplot, which shows the minimum, 25th percentile, median, 75th percentile, and maximum of the non-outlier values, with the outliers as dots. Unsurprisingly, scores are higher in playoff matches than in qualification matches.
-
 ```{r win_margins}
 matches %>%
   ggplot(aes(comp_level_simple, win_margin)) +
   geom_boxplot() +
   labs(
-    title = "Win margins are narrower in playoff matches",
+    title = "Win margins are slightly narrower in Playoff matches",
     x = "Competition Level",
     y = "Win Margin"
   )
@@ -92,53 +114,54 @@ Looking at win margins, we see that the median win margin in qualification match
 
 ## How to Win
 
-Are matches being decided based on the gap in Scale scoring, or in Switch scoring?
+What scoring objective is deciding how matches are won and lost?
 
-For the rest of this analysis, I am lumping together certain scoring types
-* '''Auto''' - Points scored during the Autonomous period, including Cross the Line, and Scale and Switch ownership points
-* '''Scale''' - Points scored on the Scale during the Teleoperated period, including the Force powerup, but excluding the Boost powerup
-* '''Switch''' - Points scored on the Switch during the Teleoperated period, including the Force powerup, but excluding the Boost powerup
-* '''Vault''' - Points scored for placing cubes in the Vault and scored by the Boost powerup
+In this analysis, I am lumping together ways of scoring points to group them with "what a robot focuses on doing":
+* '''Auto''' - Points scored for crossing the line during the Autonomous period, excluding Scale and Switch ownership points
+* '''Scale''' - Points scored from Scale ownership during the Autonomous and Teleoperated period, excluding points from the Boost powerup and ownership seconds from the Force powerup
+* '''Switch''' - Points scored from Switch ownership during the Autonomous and Teleoperated period, excluding points from the Boost powerup and ownership seconds from the Force powerup
+* '''Vault''' - Points scored for placing cubes in the Vault, scored by the Boost powerup, and ownership second points from the Force powerup, but not the Levitate powerup
 * '''Endgame''' - Points scored for Endgame objectives, including by the Levitate powerup
 * '''Foul''' - Points scored due to the other alliance's fouls
 
-```{r}
+```{r scoring_objective_margins}
 matches %>%
-  gather(switch_ownership_delta, scale_ownership_delta, key = "ownership_object", value = "ownership_delta") %>%
-  mutate(ownership_object = fct_recode(ownership_object,
+  gather(switch_ownership_delta, scale_ownership_delta, vault_delta, endgame_delta, key = "score_delta_type", value = "score_delta_type_pts") %>%
+  mutate(score_delta_type = fct_recode(score_delta_type,
     "Switch" = "switch_ownership_delta",
-    "Scale"  = "scale_ownership_delta"
+    "Scale"  = "scale_ownership_delta",
+    "Vault" = "vault_delta",
+    "Endgame" = "endgame_delta"
   )) %>%
-  mutate(ownership_object = fct_relevel(ownership_object, c("Switch", "Scale")))%>%
-  ggplot(aes(comp_level_simple, abs(ownership_delta))) +
-  geom_boxplot() +
-  facet_wrap(~ .$ownership_object) +
+  mutate(score_delta_type = fct_relevel(score_delta_type, c("Switch", "Scale", "Vault", "Endgame")))%>%
+  ggplot(aes(score_delta_type, abs(score_delta_type_pts), color = comp_level_simple)) +
+  geom_boxplot(position = position_dodge(width = 0.85)) +
   labs(
-    title = "Ownership Point Margin Between Alliances",
-    x = "",
+    title = "Scale provides largest margins, Switch margins decrease in Playoffs",
+    subtitle = "Point margins are the difference in the number of points scored by each alliance",
+    x = "Scoring Type",
     y = "Point Margin",
-    fill = "Scoring Object"
+    color = "Competition Level"
   )
 ```
 
 The Switch point margins are much smaller than the Scale point margins, both in Qualifications and Playoffs. In the typical match, the score margin created by the Switches isn't enough to overcome Scale scoring.
 
-```{r}
+```{r scale_margin_match_margin_comparison}
 matches %>%
   ggplot(aes(scale_ownership_delta, 
              score_delta, 
              color = winning_alliance,
-             shape = comp_level_simple),
-         alpha = 0.8) +
-  geom_point() + 
+             shape = comp_level_simple)) +
+  geom_point(alpha = 0.3) + 
   geom_abline(slope = -1) +
   labs(
     title = "Scale margin usually exceeds Match margin",
-    subtitle = "Diagonal line has slope of -1, showing boundary where alliance won Scale but lost Match",
+    subtitle = "Region between diagonal line and horizontal axis is where alliance won Scale but lost Match",
     x = "Scale Margin (Red - Blue)",
     y = "Match Score Margin (Red - Blue)",
     color = "Winner",
-    shape = "Comp Level"
+    shape = "Competition Level"
   ) + 
   scale_colour_manual(values = c(red = "red", blue = "blue", tie = "purple"))
 ```
@@ -155,22 +178,33 @@ playoffs_scale_win_ratio <- matches %>%
   mean()
 ```
 
-In `r sprintf("%1.1f%%", quals_scale_win_ratio * 100)` of Qualification matches and `r sprintf("%1.1f%%", playoffs_scale_win_ratio * 100)` of Playoff matches, the alliance that wins the scale wins the match. Obviously it's good advice to try to outscore your opponent on the Scale, but if you're going to lose the Scale, how should you win the match?
+In `r sprintf("%1.1f%%", quals_scale_win_ratio * 100)` of Qualification matches and `r sprintf("%1.1f%%", playoffs_scale_win_ratio * 100)` of Playoff matches, the alliance that wins the Scale wins the match. This game is truly a battle for the Scale!
 
 ## Lose the Scale, Win the Match
 
+Obviously it's good advice to try to outscore your opponent on the Scale, but if you're going to lose the Scale, how should you win the match?
 
-```{r}
+We can look at the matches where teams have overcome a Scale margin to win the match anyway. Below is a cumulative distribution function showing what percent of matches where a team lost the Scale but won the match a particular Scale margin or lower.
+
+```{r scale_margin_cdf}
 matches %>%
   filter(scale_owner_won_match == FALSE) %>%
   ggplot(aes(abs(scale_ownership_delta))) +
-  stat_ecdf()
+  stat_ecdf() +
+  labs(
+    title = "Easier to overcome smaller Scale margins",
+    subtitle = "Matches where winning alliance had a negative Scale margin",
+    x = "Scale margin",
+    y = "Cumulative % of Matches"
+  ) +
+  scale_y_continuous(labels = scales::percent)
 ```
 
+If you're behind on the Scale, you've got to make up the points somewhere else. We can get a sense for what matters by looking at each other scoring objective's margin, and calculating it as the percent of the Scale margin the alliance had to overcome. If you lost the Scale by 50 points, but won the Switch by 25 points and won the Endgame by 30 points, we'd say the Switch made up 50% of the Scale margin, and the Endgame made up 60% of the Scale margin, so the alliance made up 110% of the Scale margin in total.
+
+Here are some examples matches where an alliance lost the Scale by a margin of at least 25 points, but overcame that margin through other scoring objectives to win the match. I've removed matches where fouls were more than 50% of the made up margin, because it's a bad strategy to rely on your opponent giving you foul points!
+
 ```{r lose_scale_win_match_examples}
-## Filter out matches that had <10pt scale difference
-## Do the "what other scoring objective won it?" analysis
-## See if that can be a series of stacked bars of %'s
 
 matches_lose_scale_win_match <- matches %>%
   filter(scale_owner_won_match == FALSE,
@@ -194,21 +228,24 @@ matches_lose_scale_win_match %>%
     "Switch" = "switch_ownership_delta_pct_margin",
     "Auto" = "auto_delta_pct_margin"
   )) %>%
-  mutate(score_delta_type = fct_relevel(score_delta_type, c("Foul", "Auto", "Vault", "Endgame", "Switch"))) %>%
+  mutate(score_delta_type = fct_relevel(score_delta_type, c("Foul", "Auto", "Endgame", "Vault", "Switch"))) %>%
   filter(id < 50) %>%
   ggplot(aes(x = id, y = score_delta_type_pct, fill = score_delta_type)) +
+  geom_hline(aes(yintercept = 1)) +
   geom_bar(stat = "identity") + 
   labs(
     title = "How to Lose the Scale but Win the Match",
-    subtitle = "Matches where the winners lost the scale by 25+ points, and fouls were less than half the scale margin",
+    subtitle = "50 examples where winners lost scale by 25+ points, and fouls were < 50% of scale margin",
     x = "Individual Matches",
-    y = "% of Scale Margin",
+    y = "% of Scale Margin Made Up",
     fill = "Scoring Type"
   ) +
   theme(axis.text.x = element_blank(),
         axis.ticks.x = element_blank()) +
   scale_y_continuous(labels = scales::percent)
 ```
+
+This gets us a sense for example matches, but this visualization gets too crowded if we try to repeat this for all of the matches where the Scale loser won the match. Instead, we can look at the statistics of the "% of Scale made up" margins for the other scoring objectives.
 
 ```{r lose_scale_win_match_distribution}
 matches_lose_scale_win_match %>%
@@ -220,10 +257,11 @@ matches_lose_scale_win_match %>%
     "Switch" = "switch_ownership_delta_pct_margin",
     "Auto" = "auto_delta_pct_margin"
   )) %>%
-  mutate(score_delta_type = fct_relevel(score_delta_type, c("Switch", "Endgame", "Vault", "Auto", "Foul"))) %>%
+  mutate(score_delta_type = fct_relevel(score_delta_type, c("Switch", "Vault", "Endgame", "Auto", "Foul"))) %>%
   ggplot(aes(x = score_delta_type, y = score_delta_type_pct, color = comp_level_simple)) +
+  geom_hline(aes(yintercept = 1)) +
   geom_boxplot(position = position_dodge(width = 0.85)) +
-  labs(title = "The Switch is only way to make up losing the Scale by itself.",
+  labs(title = "The Switch is only way to make up losing the Scale by itself",
        subtitle = "Matches where winning alliance lost Scale by 25+ pts",
        x = "Scoring Type",
        y = "% of Scale Margin",
@@ -231,6 +269,14 @@ matches_lose_scale_win_match %>%
   scale_y_continuous(labels = scales::percent)
 ```
 
+Here it's clear that the Switch is the scoring objective that's making up most of the difference. In the median Scale comeback match, the Switch is accounting for `r sprintf("%1.1f%%", matches_lose_scale_win_match %>% .$switch_ownership_delta_pct_margin %>% median() * 100)` of the margin to make up, while the other scoring objectives' median percent margins made up are below 30%. This makes sense, as the other objectives have a smaller total point range available, and it is more likely the two alliance will perform similarly at those objectives.
 
+### The Takeaway
 
+If you're going to lose the Scale, make sure your Switch is always on and your opponent's Switch is always off, which will keep the total score margin between your alliances at 0. Then slightly outperform the opposing alliance at the Vault or Endgame, and you've got the match in the bag.
 
+## Further Analysis
+
+We're only partway through Week 2 of FIRST® POWER UP℠, so there's plenty left to learn about this year's game. It will be interesting to repeat this analysis, and look at whether the winning strategies are evolving week to week. If you want to take this further, instructions for replicating my analysis are at the top of this post!
+
+Go teams!

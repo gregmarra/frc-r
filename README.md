@@ -1,10 +1,19 @@
 # FRC R
-Playing around with R to look at some FRC data, using the The Blue Alliance csv data dumps from github.com/the-blue-alliance/the-blue-alliance-data/
+Playing around with R to look at some FRC data, using the The Blue Alliance API.
 
-I've been using R for Data Science to learn R, which is available online for free at http://r4ds.had.co.nz/
+I've been using the book R for Data Science to learn R, which is available online for free at http://r4ds.had.co.nz/
 
-## Example
-Here's the type of stuff this makes pretty easy!
+## TBA API
+
+The file `get_tba_data.R` has a few helper methods to access data from The Blue Alliance API. You can see its usage in the .Rmd notebooks here.
+
+## Analysis
+
+Here are a few of the analyses I've done with this:
+* [2018 Week Two Match Analysis](https://github.com/gregmarra/frc-r/blob/master/2018_tba_w2_blog_post.md)
+* [2018 Team Growth](https://github.com/gregmarra/frc-r/blob/master/2018_teams.md)
+
+Here are fast examples of plots this makes easy:
 
 ![Rookie Teams by Country](https://github.com/gregmarra/frc-r/blob/master/rookies_by_country.png "Rookie Teams by Country")
 
