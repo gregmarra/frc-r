@@ -31,7 +31,7 @@ events <- years %>%
     official = !event_type_string %in% c("Preseason", "Offseason")
   ) %>%
   mutate(
-    official = factor(.$official, levels=c(TRUE, FALSE))
+    official = factor(.$official, levels=c(TRUE, FALSE)) # put official events before unofficial ones
   )
 ```
 
