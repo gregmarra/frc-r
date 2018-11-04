@@ -1,0 +1,79 @@
+---
+title: "TBA Webcast Coverage"
+author: "Greg Marra"
+date: "11/4/2018"
+output: github_document
+---
+
+Many people come to The Blue Alliance to watch webcasts of FIRST Robotics Competition events. How is our coverage of webcasts trending over time?
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(skimr)
+
+source("get_tba_data.R")
+
+years <- c(
+  2013,
+  2014,
+  2015,
+  2016, 
+  2017, 
+  2018)
+
+events <- years %>%
+  map(~ getEvents(.x)) %>%
+  bind_rows() %>%
+  mutate(
+    has_webcast = map_int(webcasts, nrow) > 0,
+    official = !event_type_string %in% c("Preseason", "Offseason")
+  )
+  
+```
+
+### Event Webcast Coverage
+
+```{r webcast_coverage_bar_chart}
+events %>%
+  ggplot(aes(x = year,
+             fill = has_webcast)) +
+  geom_bar() +
+  facet_grid(. ~ official, labeller = label_both) +
+  labs(
+    title = "Event Webcast Coverage",
+    subtitle = "Webcast coverage is growing over time",
+    x = "Year",
+    y = "Events",
+    fill = "Has Webcast"
+  )
+```
+
+### As Ratios
+
+While nearly all official events are webcast, we see that the trend over time is for more and more unofficial events to also run webcasts.
+
+```{r webcast_coverage_pct}
+events %>%
+  group_by(year, official) %>%
+  summarize(
+    n_events = n(),
+    n_events_w_webcast = sum(map_int(webcasts, nrow) > 0),
+    pct_events_w_webcast = mean(map_int(webcasts, nrow) > 0)
+  ) %>%
+  ggplot(aes(x = year,
+             y = pct_events_w_webcast,
+             color = official)) +
+  geom_point() +
+  labs(
+    title = "Event Webcast Coverage",
+    subtitle = "Official events all have webcasts, and offseasons are growing in coverage",
+    x = "Year",
+    y = "Event Webcast Coverage",
+    color = "Official Event?"
+  )
+```
+
+
+
