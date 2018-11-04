@@ -29,8 +29,10 @@ events <- years %>%
   mutate(
     has_webcast = map_int(webcasts, nrow) > 0,
     official = !event_type_string %in% c("Preseason", "Offseason")
+  ) %>%
+  mutate(
+    official = factor(.$official, levels=c(TRUE, FALSE))
   )
-  
 ```
 
 ### Event Webcast Coverage
