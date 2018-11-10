@@ -5,7 +5,9 @@ date: "11/4/2018"
 output: github_document
 ---
 
-Many people come to The Blue Alliance to watch webcasts of FIRST Robotics Competition events. How is our coverage of webcasts trending over time?
+Many people come to The Blue Alliance to watch webcasts of FIRST Robotics Competition events. How is our coverage ofwebcasts and match videos trending over time?
+
+# Webcasts
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
@@ -15,7 +17,19 @@ library(skimr)
 
 source("get_tba_data.R")
 
+get_size <- function(thing) {
+  if ( class(thing) == "list" ) {
+    return(thing %>% length)
+  } else if ( class(thing) == "data.frame") {
+    return(thing %>% nrow)
+  } else {
+    return(FALSE)
+  }
+}
+
 years <- c(
+  2011,
+  2012,
   2013,
   2014,
   2015,
@@ -27,12 +41,26 @@ events <- years %>%
   map(~ getEvents(.x)) %>%
   bind_rows() %>%
   mutate(
-    has_webcast = map_int(webcasts, nrow) > 0,
+    has_webcast = map_int(webcasts, get_size) > 0,
     official = !event_type_string %in% c("Preseason", "Offseason")
   ) %>%
   mutate(
     official = factor(.$official, levels=c(TRUE, FALSE)) # put official events before unofficial ones
   )
+
+matches <- map2(events$year, 
+                events$event_code, 
+                ~ getEventMatches(.x, .y)
+                ) %>%
+  bind_rows()
+
+matches <- matches %>%
+  left_join(events, by = c("event_key" = "key")) %>%
+  mutate(
+    has_video = map_int(videos, get_size) > 0
+  )
+
+
 ```
 
 ### Event Webcast Coverage
@@ -61,8 +89,8 @@ events %>%
   group_by(year, official) %>%
   summarize(
     n_events = n(),
-    n_events_w_webcast = sum(map_int(webcasts, nrow) > 0),
-    pct_events_w_webcast = mean(map_int(webcasts, nrow) > 0)
+    n_events_w_webcast = sum(has_webcast),
+    pct_events_w_webcast = mean(has_webcast)
   ) %>%
   ggplot(aes(x = year,
              y = pct_events_w_webcast,
@@ -77,5 +105,42 @@ events %>%
   )
 ```
 
+## Match Video Coverage
+
+```{r match_video_coverage}
+# select(-starts_with("score_breakdown")) %>%
+
+matches %>%
+  ggplot(aes(x = year,
+             fill = has_video)) +
+  geom_bar() +
+  facet_grid(. ~ official, labeller = label_both) +
+  labs(
+    title = "Match Video Coverage",
+    subtitle = "Video coverage is growing over time, but many offseasons events don't have match data at all.",
+    x = "Year",
+    y = "Matches",
+    fill = "Has Videos"
+  )
+
+matches %>%
+  group_by(year, official) %>%
+  summarize(
+    n_matches = n(),
+    n_matches_w_video = sum(has_video),
+    pct_matches_w_video = mean(has_video)
+  ) %>%
+  ggplot(aes(x = year,
+             y = pct_matches_w_video,
+             color = official)) +
+  geom_point() +
+  labs(
+    title = "Match Video Coverage",
+    subtitle = "Match video coverage is growing over time for official events, but shrinking for unofficial events",
+    x = "Year",
+    y = "Match Video Coverage",
+    color = "At Official Event?"
+  )
+```
 
 
