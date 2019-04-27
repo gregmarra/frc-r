@@ -1,0 +1,120 @@
+---
+title: "2019tba_growth"
+author: "Greg Marra"
+date: "4/27/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(lubridate)
+
+source("get_tba_data.R")
+
+mondays <- c(
+  ymd(20190304), 
+  ymd(20190311),
+  ymd(20190318),
+  ymd(20190325),
+  ymd(20190401),
+  ymd(20190408),
+  ymd(20190415),
+  ymd(20190422),
+  ymd(20190429)
+)
+
+events <- getEvents("2019") %>% 
+  filter(
+    !event_type_string %in% c("Preseason", "Offseason")
+  )
+
+# champs are missing week
+no_week <- events %>%
+  filter(is.na(week)) %>%
+  select(event_code)
+
+teams <- events$event_code %>% 
+  map(~ getEventTeamsKeys("2019", .x))
+
+events <- events %>%
+  add_column(teams)
+
+event_teams <- events %>%
+  unnest(teams) %>%
+  select(year, event_code, teams, week)
+
+```
+
+## 2019 The Blue Alliance Growth
+
+2019 was an exciting year for The Blue Alliance, marking the launch of our iPhone application. How did this year stack up vs previous?
+
+```{r wap_vs_teams}
+# Data from https://console.firebase.google.com/project/tbatv-prod-hrd/analytics/app/android:com.thebluealliance.androidclient/overview%3Ft=1&params=_u.date00%253D20190222%2526_u.date01%253D20190426&cs=app.m.dashboard.overview&g=1
+waps = tribble(
+  ~ds, ~week, ~wap,
+  mondays[1], 0, 16885,
+  mondays[2], 1, 27144,
+  mondays[3], 2, 29246,
+  mondays[4], 3, 29584,
+  mondays[5], 4, 32353,
+  mondays[6], 5, 29146,
+  mondays[7], 6, 23551,
+  mondays[8], 7, 25770,
+  mondays[9], 8, 0
+)
+
+week_team_counts <- event_teams %>%
+  group_by(week) %>%
+  count()
+
+waps <- waps %>% 
+  left_join(week_team_counts) %>%
+  mutate(
+    wap_per_team = wap / n
+  )
+
+require("ggrepel")
+waps %>%
+  ggplot(aes(x = n, y = wap, label = week)) +
+  geom_point() +
+  geom_text_repel() +
+  labs(
+    title = "Teams Competing Drives Usage",
+    subtitle = "Labeled with Week Number",
+    x = "Week's Teams Competing",
+    y = "Weekly Active People"
+  )
+```
+
+asdf
+
+```{r wap_per_team}
+waps %>%
+  ggplot(aes(x = week, y = wap_per_team)) +
+  geom_col() +
+  labs(
+    title = "Teams Competiting Drives Usage",
+    subtitle = "Later weeks have higher WAP / Team due to District CMPs?",
+    x = "Week",
+    y = "Weekly Active People per Team Competing"
+  )
+``` 
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
