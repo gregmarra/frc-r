@@ -2,13 +2,14 @@
 title: "2019tba_growth"
 author: "Greg Marra"
 date: "4/27/2019"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 library(lubridate)
+require("ggrepel")
 
 source("get_tba_data.R")
 
@@ -24,12 +25,44 @@ mondays <- c(
   ymd(20190429)
 )
 
+remap_week <- function(event_code2, current_week) {
+  week_remaps = tribble(
+    ~event_code, ~week,
+    "arc", 8,
+    "cars", 8,
+    "carv", 7,
+    "cmpmi", 8,
+    "cmptx", 7,
+    "cur", 8,
+    "dal", 8,
+    "dar", 8,
+    "gal", 7,
+    "hop", 7,
+    "new", 7,
+    "roe", 7,
+    "tes", 8,
+    "tur", 7
+  )
+    
+  lookup_week <- week_remaps %>% filter(event_code==event_code2) %>% .$week
+  if (length(lookup_week) > 0) {
+    return(lookup_week)
+  } else {
+    return(current_week)
+  }
+}
+
 events <- getEvents("2019") %>% 
   filter(
     !event_type_string %in% c("Preseason", "Offseason")
-  )
+  ) %>%
+  rowwise %>%
+  mutate(
+    week = remap_week(event_code, week)
+  ) %>%
+  as.data.frame()
 
-# champs are missing week
+# check champs weeks are filled in
 no_week <- events %>%
   filter(is.na(week)) %>%
   select(event_code)
@@ -44,13 +77,10 @@ event_teams <- events %>%
   unnest(teams) %>%
   select(year, event_code, teams, week)
 
-```
+week_team_counts <- event_teams %>%
+  group_by(week) %>%
+  count()
 
-## 2019 The Blue Alliance Growth
-
-2019 was an exciting year for The Blue Alliance, marking the launch of our iPhone application. How did this year stack up vs previous?
-
-```{r wap_vs_teams}
 # Data from https://console.firebase.google.com/project/tbatv-prod-hrd/analytics/app/android:com.thebluealliance.androidclient/overview%3Ft=1&params=_u.date00%253D20190222%2526_u.date01%253D20190426&cs=app.m.dashboard.overview&g=1
 waps = tribble(
   ~ds, ~week, ~wap,
@@ -62,20 +92,22 @@ waps = tribble(
   mondays[6], 5, 29146,
   mondays[7], 6, 23551,
   mondays[8], 7, 25770,
-  mondays[9], 8, 0
+  mondays[9], 8, 25082
 )
 
-week_team_counts <- event_teams %>%
-  group_by(week) %>%
-  count()
-
 waps <- waps %>% 
-  left_join(week_team_counts) %>%
+  left_join(week_team_counts, by = "week") %>%
   mutate(
-    wap_per_team = wap / n
+    wap_per_team = wap/ n,
+    week = week + 1 # fix week offset for pretty display
   )
+```
 
-require("ggrepel")
+## 2019 The Blue Alliance Usage Analysis
+
+How does the number of teams competing affect weekly usage?
+
+```{r wap_vs_teams}
 waps %>%
   ggplot(aes(x = n, y = wap, label = week)) +
   geom_point() +
@@ -88,7 +120,7 @@ waps %>%
   )
 ```
 
-asdf
+
 
 ```{r wap_per_team}
 waps %>%
@@ -96,25 +128,10 @@ waps %>%
   geom_col() +
   labs(
     title = "Teams Competiting Drives Usage",
-    subtitle = "Later weeks have higher WAP / Team due to District CMPs?",
+    subtitle = "Later weeks have higher WAP / Team due to (District) Champs?",
     x = "Week",
-    y = "Weekly Active People per Team Competing"
-  )
+    y = "Weekly Active People / Teams Competing"
+  ) +
+  scale_x_continuous(breaks=c(0,1,2,3,4,5,6,7,8,9))
 ``` 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
